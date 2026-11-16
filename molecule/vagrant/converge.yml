@@ -1,0 +1,14 @@
+---
+- name: Converge (permissive to enforcing on a real VM)
+  hosts: all
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Remediate
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."  # noqa: role-name[path]
+      vars:
+        linux_hardening_mode: remediate
+        linux_hardening_confirm_remediation: true
+        linux_hardening_selinux_confirm_enforcing: true
+        linux_hardening_selinux_booleans: {httpd_can_network_connect: true}

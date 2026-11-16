@@ -1,0 +1,14 @@
+---
+# Stage only: config -> permissive and /.autorelabel. Idempotent while still disabled; never reboots.
+- name: Converge (stage the enable from disabled)
+  hosts: all
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Stage
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."  # noqa: role-name[path]
+      vars:
+        linux_hardening_mode: remediate
+        linux_hardening_confirm_remediation: true
+        linux_hardening_selinux_allow_enable_from_disabled: true

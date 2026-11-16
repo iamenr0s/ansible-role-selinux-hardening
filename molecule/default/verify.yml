@@ -1,0 +1,39 @@
+---
+- name: Verify
+  hosts: all
+  become: false
+  gather_facts: true
+  tasks:
+    - name: Audit again, without failing on the staged state
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."  # noqa: role-name[path]
+      vars:
+        linux_hardening_mode: audit
+        linux_hardening_fail_on_error: false
+
+    - name: Other OS families are skipped
+      ansible.builtin.assert:
+        that: linux_hardening_selinux_findings == []
+        quiet: true
+      when: ansible_facts['os_family'] != 'RedHat'
+
+    - name: Staged state on the RedHat family
+      when: ansible_facts['os_family'] == 'RedHat'
+      block:
+        - name: Only the staged running-mode finding remains
+          ansible.builtin.assert:
+            that:
+              - linux_hardening_selinux_findings | length == 1
+              - linux_hardening_selinux_findings[0].key == 'running SELinux mode'
+              - not linux_hardening_selinux_findings[0].fixable
+            quiet: true
+
+        - name: Config is permissive, never enforcing, while staging
+          ansible.builtin.command: grep -Eq '^SELINUX=permissive$' /etc/selinux/config
+          changed_when: false
+
+        - name: The relabel marker exists
+          ansible.builtin.stat:
+            path: /.autorelabel
+          register: __m
+          failed_when: not __m.stat.exists

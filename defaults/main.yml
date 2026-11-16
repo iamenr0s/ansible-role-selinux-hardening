@@ -1,0 +1,24 @@
+---
+# --- Shared collection variables ---
+linux_hardening_mode: audit                    # audit (read-only) | remediate
+linux_hardening_confirm_remediation: false     # must be true for any change
+linux_hardening_backup: true
+linux_hardening_verify: true
+linux_hardening_fail_on_error: true
+
+# --- selinux_hardening (EL / Fedora; other families are skipped, see apparmor_hardening) ---
+linux_hardening_selinux_enabled: true
+linux_hardening_selinux_config: /etc/selinux/config
+
+linux_hardening_selinux_state: enforcing       # enforcing | permissive
+# Only reported: changing the policy type needs a relabel and is not done by this role.
+linux_hardening_selinux_policy: targeted
+
+# Raising the running mode from permissive to enforcing can break services that were relying on it.
+linux_hardening_selinux_confirm_enforcing: false
+# SELinux is disabled: allow staging (config -> permissive, /.autorelabel). The role never reboots; reboot,
+# let the relabel finish, then run the role again to reach enforcing.
+linux_hardening_selinux_allow_enable_from_disabled: false
+
+# Persistent SELinux booleans {name: true|false}. Skipped while SELinux is disabled.
+linux_hardening_selinux_booleans: {}

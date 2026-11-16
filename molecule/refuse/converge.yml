@@ -1,0 +1,47 @@
+---
+- name: Converge (remediation must be refused without consent)
+  hosts: all
+  become: false
+  gather_facts: true
+  tasks:
+    - name: RedHat family only; other families are skipped by the role
+      when: ansible_facts['os_family'] == 'RedHat'
+      block:
+        - name: Try to remediate without confirming
+          block:
+            - name: Remediate unconfirmed
+              ansible.builtin.include_role:
+                name: "{{ playbook_dir }}/../.."  # noqa: role-name[path]
+              vars:
+                linux_hardening_mode: remediate
+            - name: Fail if the role did not refuse
+              ansible.builtin.fail:
+                msg: Role remediated without confirmation.
+          rescue:
+            - name: Assert the refusal came from the confirmation check
+              ansible.builtin.assert:
+                that: "'confirm_remediation' in ansible_failed_result.msg"
+                quiet: true
+
+        - name: Try to enable from disabled without consent
+          block:
+            - name: Remediate confirmed, but without allow_enable_from_disabled
+              ansible.builtin.include_role:
+                name: "{{ playbook_dir }}/../.."  # noqa: role-name[path]
+              vars:
+                linux_hardening_mode: remediate
+                linux_hardening_confirm_remediation: true
+            - name: Fail if the role did not refuse
+              ansible.builtin.fail:
+                msg: Role staged the enable without consent.
+          rescue:
+            - name: Assert the refusal named the switch
+              ansible.builtin.assert:
+                that: "'allow_enable_from_disabled' in ansible_failed_result.msg"
+                quiet: true
+
+        - name: Nothing was staged
+          ansible.builtin.stat:
+            path: /.autorelabel
+          register: __f
+          failed_when: __f.stat.exists

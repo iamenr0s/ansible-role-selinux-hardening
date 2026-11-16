@@ -1,0 +1,24 @@
+---
+- name: Verify on a real VM
+  hosts: all
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Running mode, config and boolean
+      ansible.builtin.command: "{{ item.cmd }}"
+      loop:
+        - {cmd: getenforce, want: Enforcing}
+        - {cmd: "sed -n 's/^SELINUX=//p' /etc/selinux/config", want: enforcing}
+        - {cmd: "getsebool httpd_can_network_connect", want: "httpd_can_network_connect --> on"}
+      loop_control:
+        label: "{{ item.cmd }}"
+      register: __r
+      changed_when: false
+      failed_when: __r.stdout != item.want
+
+    - name: Audit is compliant
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."  # noqa: role-name[path]
+      vars:
+        linux_hardening_mode: audit
+        linux_hardening_selinux_booleans: {httpd_can_network_connect: true}

@@ -1,0 +1,68 @@
+---
+- name: Gather SELinux state (is the tooling there?)
+  ansible.builtin.include_tasks: facts.yml
+
+- name: Ensure the SELinux packages are installed
+  ansible.builtin.package:
+    name: [selinux-policy-targeted, libselinux-utils, policycoreutils]
+    state: present
+  when: "['selinux-policy-targeted', 'libselinux-utils', 'policycoreutils'] | difference(ansible_facts['packages'].keys()) | length > 0"
+
+# The runtime mode is only known once getenforce exists, so decide staging and guards after the install.
+- name: Re-gather SELinux state
+  ansible.builtin.include_tasks: facts.yml
+
+- name: Refuse to stage the enable from disabled without consent
+  ansible.builtin.assert:
+    that: linux_hardening_selinux_allow_enable_from_disabled | bool
+    fail_msg: >-
+      SELinux is disabled. Enabling it needs a full filesystem relabel and a reboot. Set
+      linux_hardening_selinux_allow_enable_from_disabled: true to stage it (config -> permissive, /.autorelabel);
+      the role does not reboot. After the relabel boot, run it again to reach {{ linux_hardening_selinux_state }}.
+    quiet: true
+  when: __lh_se_staging
+
+- name: Refuse to enforce without consent
+  ansible.builtin.assert:
+    that: linux_hardening_selinux_confirm_enforcing | bool
+    fail_msg: >-
+      SELinux is permissive and would be switched to enforcing, which can break services that relied on it.
+      Check `ausearch -m avc -ts boot`, then set linux_hardening_selinux_confirm_enforcing: true to proceed.
+    quiet: true
+  when: __lh_se_runtime == 'permissive' and linux_hardening_selinux_state == 'enforcing'
+
+- name: Set SELINUX in the configuration
+  ansible.builtin.lineinfile:
+    path: "{{ linux_hardening_selinux_config }}"
+    regexp: "^SELINUX="
+    line: "SELINUX={{ __lh_se_target_state }}"
+    create: true
+    owner: root
+    group: root
+    mode: "0644"
+    backup: "{{ linux_hardening_backup | bool }}"
+
+- name: Ask for a relabel at the next boot
+  ansible.builtin.file:
+    path: /.autorelabel
+    state: touch
+    modification_time: preserve
+    access_time: preserve
+    mode: "0644"
+  when: __lh_se_staging
+
+- name: Set the running mode
+  ansible.builtin.command: "setenforce {{ 1 if linux_hardening_selinux_state == 'enforcing' else 0 }}"
+  changed_when: true
+  when: __lh_se_runtime in ['enforcing', 'permissive'] and __lh_se_runtime != linux_hardening_selinux_state
+
+- name: Set the booleans that differ
+  ansible.builtin.command: "setsebool -P {{ item.key }} {{ 'on' if item.value | bool else 'off' }}"
+  loop: "{{ linux_hardening_selinux_booleans | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  changed_when: true
+  when:
+    - __lh_se_booleans | length > 0
+    - item.key in __lh_se_booleans
+    - __lh_se_booleans[item.key] != ('on' if item.value | bool else 'off')

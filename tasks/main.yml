@@ -1,0 +1,47 @@
+---
+# audit: read-only. remediate: packages, /etc/selinux/config, running mode, booleans. Never reboots.
+- name: Run selinux_hardening
+  when: linux_hardening_selinux_enabled | bool
+  block:
+    - name: Validate linux_hardening_mode
+      ansible.builtin.assert:
+        that: linux_hardening_mode in ['audit', 'remediate']
+        fail_msg: "linux_hardening_mode must be 'audit' or 'remediate', got '{{ linux_hardening_mode }}'"
+        quiet: true
+
+    - name: Skip other OS families
+      ansible.builtin.set_fact:
+        linux_hardening_selinux_findings: []
+      when: ansible_facts['os_family'] != 'RedHat'
+
+    - name: Say why the role was skipped
+      ansible.builtin.debug:
+        msg: "selinux_hardening applies to the RedHat family (EL, Fedora); {{ ansible_facts['os_family'] }} is skipped (see apparmor_hardening)."
+      when: ansible_facts['os_family'] != 'RedHat'
+
+    - name: Run on the RedHat family
+      when: ansible_facts['os_family'] == 'RedHat'
+      block:
+        - name: Audit (read-only)
+          ansible.builtin.include_tasks: audit.yml
+          when: linux_hardening_mode == 'audit'
+
+        - name: Remediate
+          when: linux_hardening_mode == 'remediate'
+          block:
+            - name: Require explicit remediation confirmation
+              ansible.builtin.assert:
+                that: linux_hardening_confirm_remediation | bool
+                fail_msg: >-
+                  Remediation changes SELinux settings. Set linux_hardening_confirm_remediation: true
+                  to proceed (run with linux_hardening_mode: audit to preview).
+                quiet: true
+
+            - name: Configure
+              ansible.builtin.include_tasks: configure.yml
+
+            - name: Verify effective configuration
+              ansible.builtin.include_tasks: audit.yml
+              vars:
+                __lh_se_audit_fatal: true
+              when: linux_hardening_verify | bool

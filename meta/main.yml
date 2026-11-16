@@ -1,0 +1,27 @@
+---
+
+dependencies: []
+
+galaxy_info:
+  role_name: selinux_hardening
+  author: iamenr0s
+  description: Audit-first SELinux mode, policy and booleans with a staged, relabel-safe enable path (iamenr0s.linux_hardening).
+  license: MIT
+  min_ansible_version: "2.16"
+  platforms:
+    - name: "EL"
+      versions:
+        - "8"
+        - "9"
+        - "10"
+    - name: "Fedora"
+      versions:
+        - "42"
+        - "43"
+        - "44"
+  galaxy_tags:
+    - security
+    - selinux
+    - mac
+    - hardening
+    - compliance

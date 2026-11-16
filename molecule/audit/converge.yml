@@ -1,0 +1,23 @@
+---
+- name: Converge (audit only)
+  hosts: all
+  become: false
+  gather_facts: true
+  tasks:
+    - name: Audit
+      ansible.builtin.include_role:
+        name: "{{ playbook_dir }}/../.."  # noqa: role-name[path]
+      vars:
+        linux_hardening_mode: audit
+        linux_hardening_fail_on_error: false
+
+    - name: Findings are a list
+      ansible.builtin.assert:
+        that: linux_hardening_selinux_findings is sequence
+        quiet: true
+
+    - name: Nothing was staged
+      ansible.builtin.stat:
+        path: /.autorelabel
+      register: __f
+      failed_when: __f.stat.exists

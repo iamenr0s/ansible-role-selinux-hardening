@@ -1,0 +1,33 @@
+---
+# A permissive host. The role must refuse to enforce until consent is given.
+- name: Prepare (permissive host, enforcing refused without consent)
+  hosts: all
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Go permissive now and in the config
+      ansible.builtin.shell: setenforce 0 && sed -i 's/^SELINUX=.*/SELINUX=permissive/' /etc/selinux/config
+      changed_when: true
+
+    - name: The role refuses to enforce without confirm_enforcing
+      block:
+        - name: Remediate unconfirmed
+          ansible.builtin.include_role:
+            name: "{{ playbook_dir }}/../.."  # noqa: role-name[path]
+          vars:
+            linux_hardening_mode: remediate
+            linux_hardening_confirm_remediation: true
+        - name: Fail if the role did not refuse
+          ansible.builtin.fail:
+            msg: Role enforced SELinux without confirm_enforcing.
+      rescue:
+        - name: Assert the refusal named the switch
+          ansible.builtin.assert:
+            that: "'confirm_enforcing' in ansible_failed_result.msg"
+            quiet: true
+
+    - name: Still permissive
+      ansible.builtin.command: getenforce
+      register: __g
+      changed_when: false
+      failed_when: __g.stdout != 'Permissive'

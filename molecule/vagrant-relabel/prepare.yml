@@ -1,0 +1,20 @@
+---
+# Make SELinux really disabled (kernel parameter, as RHEL 9 recommends), then reboot.
+- name: Prepare (disabled host)
+  hosts: all
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Disable SELinux on the kernel command line
+      ansible.builtin.command: grubby --update-kernel ALL --args selinux=0
+      changed_when: true
+
+    - name: Reboot
+      ansible.builtin.reboot:
+        reboot_timeout: 600
+
+    - name: SELinux is disabled
+      ansible.builtin.command: getenforce
+      register: __g
+      changed_when: false
+      failed_when: __g.stdout != 'Disabled'
