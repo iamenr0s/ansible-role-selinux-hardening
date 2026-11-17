@@ -2,63 +2,116 @@
 - name: Gather SELinux state
   ansible.builtin.include_tasks: facts.yml
 
-- name: Compare with desired state
+# Each check adds a finding {key, expected, actual, fixable} when the host deviates.
+- name: Start with no findings
   ansible.builtin.set_fact:
-    __selinux_hardening_findings: >-
-      {%- set out = [] -%}
-      {%- set pkgs = ansible_facts['packages'] -%}
-      {%- for p in ['selinux-policy-targeted', 'libselinux-utils', 'policycoreutils'] if p not in pkgs -%}
-      {%- set _ = out.append({'key': 'package ' ~ p, 'expected': 'installed', 'actual': 'missing',
-                              'fixable': true}) -%}
-      {%- endfor -%}
-      {%- if __selinux_hardening_runtime == 'disabled' -%}
-      {%- set _ = out.append({'key': 'running SELinux mode', 'expected': selinux_hardening_state,
-                              'actual': 'disabled (staged: config permissive + /.autorelabel,'
-                                        ~ ' then reboot and run again)',
-                              'fixable': false}) -%}
-      {%- elif __selinux_hardening_runtime in ['enforcing', 'permissive']
-               and __selinux_hardening_runtime != selinux_hardening_state -%}
-      {%- set _ = out.append({'key': 'running SELinux mode', 'expected': selinux_hardening_state,
-                              'actual': __selinux_hardening_runtime, 'fixable': true}) -%}
-      {%- endif -%}
-      {%- if __selinux_hardening_config.get('SELINUX') != __selinux_hardening_target_state -%}
-      {%- set _ = out.append({'key': 'SELINUX in ' ~ selinux_hardening_config,
-                              'expected': __selinux_hardening_target_state,
-                              'actual': __selinux_hardening_config.get('SELINUX') | default('unset', true),
-                              'fixable': true}) -%}
-      {%- endif -%}
-      {%- if __selinux_hardening_staging and not __selinux_hardening_autorelabel.stat.exists -%}
-      {%- set _ = out.append({'key': 'relabel marker /.autorelabel', 'expected': 'present', 'actual': 'missing',
-                              'fixable': true}) -%}
-      {%- endif -%}
-      {%- if __selinux_hardening_config.get('SELINUXTYPE') | default('') != selinux_hardening_policy -%}
-      {%- set _ = out.append({'key': 'SELINUXTYPE in ' ~ selinux_hardening_config,
-                              'expected': selinux_hardening_policy,
-                              'actual': __selinux_hardening_config.get('SELINUXTYPE') | default('unset', true)
-                                        ~ ' (reported only: changing the policy needs a relabel)',
-                              'fixable': false}) -%}
-      {%- endif -%}
-      {%- set cmd = (__selinux_hardening_cmdline.content | default('') | b64decode).split() -%}
-      {%- for a in ['selinux=0', 'enforcing=0'] if a in cmd -%}
-      {%- set _ = out.append({'key': 'kernel parameter ' ~ a, 'expected': 'absent',
-                              'actual': 'present (reported only: bootloader)', 'fixable': false}) -%}
-      {%- endfor -%}
-      {%- for n, want in selinux_hardening_booleans.items()
-            if __selinux_hardening_booleans | length > 0
-               and __selinux_hardening_booleans.get(n) != ('on' if want | bool else 'off') -%}
-      {%- set _ = out.append({'key': 'boolean ' ~ n, 'expected': 'on' if want | bool else 'off',
-                              'actual': __selinux_hardening_booleans.get(n) | default('unknown', true),
-                              'fixable': n in __selinux_hardening_booleans}) -%}
-      {%- endfor -%}
-      {{ out | to_json }}
+    selinux_hardening_findings: []
 
-- name: Record findings
+- name: Check the SELinux packages
   ansible.builtin.set_fact:
-    selinux_hardening_findings: "{{ __selinux_hardening_findings | from_json }}"
+    selinux_hardening_findings: "{{ selinux_hardening_findings + [__selinux_hardening_finding] }}"
+  vars:
+    __selinux_hardening_finding: {key: "package {{ item }}", expected: installed, actual: missing, fixable: true}
+  loop: "{{ __selinux_hardening_packages | reject('in', ansible_facts['packages']) | list }}"
 
-- name: Report selinux_hardening result
+- name: Check the running mode (disabled, staged)
+  ansible.builtin.set_fact:
+    selinux_hardening_findings: "{{ selinux_hardening_findings + [__selinux_hardening_finding] }}"
+  vars:
+    __selinux_hardening_finding:
+      key: running SELinux mode
+      expected: "{{ selinux_hardening_state }}"
+      actual: "disabled (staged: config permissive + /.autorelabel, then reboot and run again)"
+      fixable: false
+  when: __selinux_hardening_runtime == 'disabled'
+
+- name: Check the running mode
+  ansible.builtin.set_fact:
+    selinux_hardening_findings: "{{ selinux_hardening_findings + [__selinux_hardening_finding] }}"
+  vars:
+    __selinux_hardening_finding:
+      key: running SELinux mode
+      expected: "{{ selinux_hardening_state }}"
+      actual: "{{ __selinux_hardening_runtime }}"
+      fixable: true
+  when:
+    - __selinux_hardening_runtime in ['enforcing', 'permissive']
+    - __selinux_hardening_runtime != selinux_hardening_state
+
+- name: Check SELINUX in the configuration
+  ansible.builtin.set_fact:
+    selinux_hardening_findings: "{{ selinux_hardening_findings + [__selinux_hardening_finding] }}"
+  vars:
+    __selinux_hardening_finding:
+      key: "SELINUX in {{ selinux_hardening_config }}"
+      expected: "{{ __selinux_hardening_target_state }}"
+      actual: "{{ __selinux_hardening_config.SELINUX | default('unset', true) }}"
+      fixable: true
+  when: __selinux_hardening_config.SELINUX | default('') != __selinux_hardening_target_state
+
+- name: Check the relabel marker
+  ansible.builtin.set_fact:
+    selinux_hardening_findings: "{{ selinux_hardening_findings + [__selinux_hardening_finding] }}"
+  vars:
+    __selinux_hardening_finding: {key: relabel marker /.autorelabel, expected: present, actual: missing, fixable: true}
+  when: __selinux_hardening_staging and not __selinux_hardening_autorelabel.stat.exists
+
+- name: Check SELINUXTYPE in the configuration (reported only)
+  ansible.builtin.set_fact:
+    selinux_hardening_findings: "{{ selinux_hardening_findings + [__selinux_hardening_finding] }}"
+  vars:
+    __selinux_hardening_finding:
+      key: "SELINUXTYPE in {{ selinux_hardening_config }}"
+      expected: "{{ selinux_hardening_policy }}"
+      actual: >-
+        {{ __selinux_hardening_config.SELINUXTYPE | default('unset', true) }}
+        (reported only: changing the policy needs a relabel)
+      fixable: false
+  when: __selinux_hardening_config.SELINUXTYPE | default('') != selinux_hardening_policy
+
+- name: Check the kernel command line (reported only)
+  ansible.builtin.set_fact:
+    selinux_hardening_findings: "{{ selinux_hardening_findings + [__selinux_hardening_finding] }}"
+  vars:
+    __selinux_hardening_finding:
+      key: "kernel parameter {{ item }}"
+      expected: absent
+      actual: "present (reported only: bootloader)"
+      fixable: false
+  loop: >-
+    {{ ['selinux=0', 'enforcing=0']
+       | select('in', (__selinux_hardening_cmdline.content | default('') | b64decode).split()) | list }}
+
+# Booleans are only known while SELinux runs; an unknown boolean is reported, not fixable.
+- name: Check the booleans
+  ansible.builtin.set_fact:
+    selinux_hardening_findings: "{{ selinux_hardening_findings + [__selinux_hardening_finding] }}"
+  vars:
+    __selinux_hardening_want: "{{ 'on' if item.value | bool else 'off' }}"
+    __selinux_hardening_finding:
+      key: "boolean {{ item.key }}"
+      expected: "{{ __selinux_hardening_want }}"
+      actual: "{{ __selinux_hardening_booleans.get(item.key) | default('unknown', true) }}"
+      fixable: "{{ item.key in __selinux_hardening_booleans }}"
+  loop: "{{ selinux_hardening_booleans | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when:
+    - __selinux_hardening_booleans | length > 0
+    - __selinux_hardening_booleans.get(item.key) != __selinux_hardening_want
+
+- name: Report each finding
   ansible.builtin.debug:
-    msg: "{{ 'COMPLIANT' if selinux_hardening_findings | length == 0 else selinux_hardening_findings }}"
+    msg: >-
+      {{ item.key }}: expected {{ item.expected }}, got {{ item.actual }}{{ '' if item.fixable else ' (manual)' }}
+  loop: "{{ selinux_hardening_findings }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Report compliance
+  ansible.builtin.debug:
+    msg: selinux_hardening is COMPLIANT
+  when: selinux_hardening_findings | length == 0
 
 # After remediation only fixable findings fail the run; a staged enable and reported-only items need a human.
 - name: Fail on findings

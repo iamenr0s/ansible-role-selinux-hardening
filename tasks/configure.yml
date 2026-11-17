@@ -4,11 +4,9 @@
 
 - name: Ensure the SELinux packages are installed
   ansible.builtin.package:
-    name: [selinux-policy-targeted, libselinux-utils, policycoreutils]
+    name: "{{ __selinux_hardening_packages }}"
     state: present
-  when: >-
-    ['selinux-policy-targeted', 'libselinux-utils', 'policycoreutils']
-    | difference(ansible_facts['packages'].keys()) | length > 0
+  when: __selinux_hardening_packages | difference(ansible_facts['packages'].keys()) | length > 0
 
 # The runtime mode is only known once getenforce exists, so decide staging and guards after the install.
 - name: Re-gather SELinux state
@@ -60,10 +58,9 @@
     - __selinux_hardening_runtime in ['enforcing', 'permissive']
     - __selinux_hardening_runtime != selinux_hardening_state
 
-# ansible.posix.seboolean needs the SELinux Python bindings on the managed node.
 - name: Ensure the SELinux Python bindings are installed
   ansible.builtin.package:
-    name: [python3-libselinux, python3-libsemanage]
+    name: "{{ __selinux_hardening_binding_packages }}"
     state: present
   when: __selinux_hardening_booleans | length > 0 and selinux_hardening_booleans | length > 0
 
@@ -80,5 +77,4 @@
     - __selinux_hardening_booleans | length > 0
     - item.key in __selinux_hardening_booleans
     # Check mode cannot install the bindings the module imports.
-    - not ansible_check_mode or
-      ['python3-libselinux', 'python3-libsemanage'] is subset(ansible_facts['packages'].keys())
+    - not ansible_check_mode or __selinux_hardening_binding_packages is subset(ansible_facts['packages'].keys())

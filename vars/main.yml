@@ -1,0 +1,5 @@
+---
+# Internal constants, shared by audit and remediate; not meant to be overridden.
+__selinux_hardening_packages: [selinux-policy-targeted, libselinux-utils, policycoreutils]
+# Python bindings ansible.posix.seboolean imports on the managed node.
+__selinux_hardening_binding_packages: [python3-libselinux, python3-libsemanage]

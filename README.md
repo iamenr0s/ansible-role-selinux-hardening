@@ -43,7 +43,7 @@ Run as root (`become: true`). Needs the `ansible.posix` collection (`ansible-gal
 The full spec is in `meta/argument_specs.yml`.
 
 ## Modes
-`audit` (default) is read-only and sets `selinux_hardening_findings` (`key, expected, actual, fixable`). `remediate` needs `selinux_hardening_confirm_remediation: true`; after it only fixable findings fail the run.
+`audit` (default) is read-only, prints one line per finding (`key: expected X, got Y`, with `(manual)` when the role won't fix it) and sets `selinux_hardening_findings` (`key, expected, actual, fixable`). `remediate` needs `selinux_hardening_confirm_remediation: true`; after it only fixable findings fail the run.
 
 ## Example
 ```yaml
