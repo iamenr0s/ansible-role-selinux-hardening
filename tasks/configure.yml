@@ -6,7 +6,9 @@
   ansible.builtin.package:
     name: [selinux-policy-targeted, libselinux-utils, policycoreutils]
     state: present
-  when: "['selinux-policy-targeted', 'libselinux-utils', 'policycoreutils'] | difference(ansible_facts['packages'].keys()) | length > 0"
+  when: >-
+    ['selinux-policy-targeted', 'libselinux-utils', 'policycoreutils']
+    | difference(ansible_facts['packages'].keys()) | length > 0
 
 # The runtime mode is only known once getenforce exists, so decide staging and guards after the install.
 - name: Re-gather SELinux state
@@ -56,13 +58,25 @@
   changed_when: true
   when: __lh_se_runtime in ['enforcing', 'permissive'] and __lh_se_runtime != linux_hardening_selinux_state
 
-- name: Set the booleans that differ
-  ansible.builtin.command: "setsebool -P {{ item.key }} {{ 'on' if item.value | bool else 'off' }}"
+# ansible.posix.seboolean needs the SELinux Python bindings on the managed node.
+- name: Ensure the SELinux Python bindings are installed
+  ansible.builtin.package:
+    name: [python3-libselinux, python3-libsemanage]
+    state: present
+  when: __lh_se_booleans | length > 0 and linux_hardening_selinux_booleans | length > 0
+
+# Unknown booleans are only reported (not fixable); empty __lh_se_booleans means SELinux is disabled.
+- name: Set the booleans
+  ansible.posix.seboolean:
+    name: "{{ item.key }}"
+    state: "{{ item.value | bool }}"
+    persistent: true
   loop: "{{ linux_hardening_selinux_booleans | dict2items }}"
   loop_control:
     label: "{{ item.key }}"
-  changed_when: true
   when:
     - __lh_se_booleans | length > 0
     - item.key in __lh_se_booleans
-    - __lh_se_booleans[item.key] != ('on' if item.value | bool else 'off')
+    # Check mode cannot install the bindings the module imports.
+    - not ansible_check_mode or
+      ['python3-libselinux', 'python3-libsemanage'] is subset(ansible_facts['packages'].keys())

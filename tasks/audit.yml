@@ -8,29 +8,43 @@
       {%- set out = [] -%}
       {%- set pkgs = ansible_facts['packages'] -%}
       {%- for p in ['selinux-policy-targeted', 'libselinux-utils', 'policycoreutils'] if p not in pkgs -%}
-      {%- set _ = out.append({'key': 'package ' ~ p, 'expected': 'installed', 'actual': 'missing', 'fixable': true}) -%}
+      {%- set _ = out.append({'key': 'package ' ~ p, 'expected': 'installed', 'actual': 'missing',
+                              'fixable': true}) -%}
       {%- endfor -%}
       {%- if __lh_se_runtime == 'disabled' -%}
       {%- set _ = out.append({'key': 'running SELinux mode', 'expected': linux_hardening_selinux_state,
-                              'actual': 'disabled (staged: config permissive + /.autorelabel, then reboot and run again)', 'fixable': false}) -%}
+                              'actual': 'disabled (staged: config permissive + /.autorelabel,'
+                                        ~ ' then reboot and run again)',
+                              'fixable': false}) -%}
       {%- elif __lh_se_runtime in ['enforcing', 'permissive'] and __lh_se_runtime != linux_hardening_selinux_state -%}
-      {%- set _ = out.append({'key': 'running SELinux mode', 'expected': linux_hardening_selinux_state, 'actual': __lh_se_runtime, 'fixable': true}) -%}
+      {%- set _ = out.append({'key': 'running SELinux mode', 'expected': linux_hardening_selinux_state,
+                              'actual': __lh_se_runtime, 'fixable': true}) -%}
       {%- endif -%}
       {%- if __lh_se_config.get('SELINUX') != __lh_se_target_state -%}
-      {%- set _ = out.append({'key': 'SELINUX in ' ~ linux_hardening_selinux_config, 'expected': __lh_se_target_state, 'actual': __lh_se_config.get('SELINUX') | default('unset'), 'fixable': true}) -%}
+      {%- set _ = out.append({'key': 'SELINUX in ' ~ linux_hardening_selinux_config, 'expected': __lh_se_target_state,
+                              'actual': __lh_se_config.get('SELINUX') | default('unset', true), 'fixable': true}) -%}
       {%- endif -%}
       {%- if __lh_se_staging and not __lh_se_autorelabel.stat.exists -%}
-      {%- set _ = out.append({'key': 'relabel marker /.autorelabel', 'expected': 'present', 'actual': 'missing', 'fixable': true}) -%}
+      {%- set _ = out.append({'key': 'relabel marker /.autorelabel', 'expected': 'present', 'actual': 'missing',
+                              'fixable': true}) -%}
       {%- endif -%}
       {%- if __lh_se_config.get('SELINUXTYPE') | default('') != linux_hardening_selinux_policy -%}
-      {%- set _ = out.append({'key': 'SELINUXTYPE in ' ~ linux_hardening_selinux_config, 'expected': linux_hardening_selinux_policy, 'actual': __lh_se_config.get('SELINUXTYPE') | default('unset') ~ ' (reported only: changing the policy needs a relabel)', 'fixable': false}) -%}
+      {%- set _ = out.append({'key': 'SELINUXTYPE in ' ~ linux_hardening_selinux_config,
+                              'expected': linux_hardening_selinux_policy,
+                              'actual': __lh_se_config.get('SELINUXTYPE') | default('unset', true)
+                                        ~ ' (reported only: changing the policy needs a relabel)',
+                              'fixable': false}) -%}
       {%- endif -%}
       {%- set cmd = (__lh_se_cmdline.content | default('') | b64decode).split() -%}
       {%- for a in ['selinux=0', 'enforcing=0'] if a in cmd -%}
-      {%- set _ = out.append({'key': 'kernel parameter ' ~ a, 'expected': 'absent', 'actual': 'present (reported only: bootloader)', 'fixable': false}) -%}
+      {%- set _ = out.append({'key': 'kernel parameter ' ~ a, 'expected': 'absent',
+                              'actual': 'present (reported only: bootloader)', 'fixable': false}) -%}
       {%- endfor -%}
-      {%- for n, want in linux_hardening_selinux_booleans.items() if __lh_se_booleans | length > 0 and __lh_se_booleans.get(n) != ('on' if want | bool else 'off') -%}
-      {%- set _ = out.append({'key': 'boolean ' ~ n, 'expected': 'on' if want | bool else 'off', 'actual': __lh_se_booleans.get(n) | default('unknown'), 'fixable': n in __lh_se_booleans}) -%}
+      {%- for n, want in linux_hardening_selinux_booleans.items()
+            if __lh_se_booleans | length > 0 and __lh_se_booleans.get(n) != ('on' if want | bool else 'off') -%}
+      {%- set _ = out.append({'key': 'boolean ' ~ n, 'expected': 'on' if want | bool else 'off',
+                              'actual': __lh_se_booleans.get(n) | default('unknown', true),
+                              'fixable': n in __lh_se_booleans}) -%}
       {%- endfor -%}
       {{ out | to_json }}
 
@@ -48,8 +62,7 @@
     msg: "selinux_hardening found {{ __lh_se_blocking | length }} deviation(s)."
   vars:
     __lh_se_blocking: >-
-      {{ linux_hardening_selinux_findings
-         if (linux_hardening_fail_on_error | bool) and not (__lh_se_audit_fatal | default(false))
-         else linux_hardening_selinux_findings | selectattr('fixable') | list
-         if (__lh_se_audit_fatal | default(false)) else [] }}
+      {{ (linux_hardening_selinux_findings | selectattr('fixable') | list)
+         if __lh_se_audit_fatal | default(false)
+         else (linux_hardening_selinux_findings if linux_hardening_fail_on_error | bool else []) }}
   when: __lh_se_blocking | length > 0

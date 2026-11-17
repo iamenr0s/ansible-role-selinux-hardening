@@ -26,7 +26,9 @@
 
     - name: Findings name the kernel parameter
       ansible.builtin.assert:
-        that: linux_hardening_selinux_findings | selectattr('key', 'eq', 'kernel parameter selinux=0') | list | length == 1
+        that: >-
+          linux_hardening_selinux_findings
+          | selectattr('key', 'eq', 'kernel parameter selinux=0') | list | length == 1
         quiet: true
 
     - name: Drop selinux=0 and reboot (the filesystem relabel runs on this boot)

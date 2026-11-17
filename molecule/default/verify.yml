@@ -35,5 +35,5 @@
         - name: The relabel marker exists
           ansible.builtin.stat:
             path: /.autorelabel
-          register: __m
-          failed_when: not __m.stat.exists
+          register: __autorelabel
+          failed_when: not __autorelabel.stat.exists

@@ -3,11 +3,11 @@
 - name: Run selinux_hardening
   when: linux_hardening_selinux_enabled | bool
   block:
-    - name: Validate linux_hardening_mode
-      ansible.builtin.assert:
-        that: linux_hardening_mode in ['audit', 'remediate']
-        fail_msg: "linux_hardening_mode must be 'audit' or 'remediate', got '{{ linux_hardening_mode }}'"
-        quiet: true
+    # meta/argument_specs.yml already validates the inputs; only the OS family fact is needed.
+    - name: Gather the minimum facts
+      ansible.builtin.setup:
+        gather_subset: [min]
+      when: ansible_facts['os_family'] is not defined
 
     - name: Skip other OS families
       ansible.builtin.set_fact:
@@ -16,7 +16,9 @@
 
     - name: Say why the role was skipped
       ansible.builtin.debug:
-        msg: "selinux_hardening applies to the RedHat family (EL, Fedora); {{ ansible_facts['os_family'] }} is skipped (see apparmor_hardening)."
+        msg: >-
+          selinux_hardening applies to the RedHat family (EL, Fedora);
+          {{ ansible_facts['os_family'] }} is skipped (see apparmor_hardening).
       when: ansible_facts['os_family'] != 'RedHat'
 
     - name: Run on the RedHat family
@@ -44,4 +46,5 @@
               ansible.builtin.include_tasks: audit.yml
               vars:
                 __lh_se_audit_fatal: true
-              when: linux_hardening_verify | bool
+              # Check mode changes nothing, so the re-audit would always fail.
+              when: linux_hardening_verify | bool and not ansible_check_mode

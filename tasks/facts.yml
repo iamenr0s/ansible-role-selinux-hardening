@@ -38,20 +38,16 @@
 
 - name: Work out the runtime mode and the configuration
   ansible.builtin.set_fact:
-    __lh_se_runtime: "{{ (__lh_se_getenforce_out.stdout | default('missing')) | trim | lower if __lh_se_getenforce.stat.exists else 'missing' }}"
+    __lh_se_runtime: >-
+      {{ (__lh_se_getenforce_out.stdout | default('missing')) | trim | lower
+         if __lh_se_getenforce.stat.exists else 'missing' }}
+    # KEY=value pairs; commented lines never match.
     __lh_se_config: >-
-      {%- set out = {} -%}
-      {%- for l in (__lh_se_config_raw.content | default('') | b64decode).splitlines() -%}
-      {%- set p = l.split('=', 1) -%}
-      {%- if p | length == 2 and not p[0].strip().startswith('#') -%}
-      {%- set _ = out.update({p[0].strip(): p[1].strip()}) -%}
-      {%- endif -%}
-      {%- endfor -%}
-      {{ out | to_json }}
+      {{ dict(__lh_se_config_raw.content | default('') | b64decode
+              | regex_findall('(?m)^\s*(\w+)\s*=\s*(\S*)')) }}
 
-- name: Normalise and decide the target
+- name: Decide the target
   ansible.builtin.set_fact:
-    __lh_se_config: "{{ __lh_se_config | from_json }}"
     __lh_se_staging: "{{ __lh_se_runtime == 'disabled' }}"
     __lh_se_target_state: "{{ 'permissive' if __lh_se_runtime == 'disabled' else linux_hardening_selinux_state }}"
 
@@ -66,13 +62,4 @@
 - name: Parse the booleans
   ansible.builtin.set_fact:
     __lh_se_booleans: >-
-      {%- set out = {} -%}
-      {%- for l in (__lh_se_getsebool.stdout | default('')).splitlines() -%}
-      {%- set p = l.split(' --> ') -%}
-      {%- if p | length == 2 -%}{%- set _ = out.update({p[0].strip(): p[1].strip()}) -%}{%- endif -%}
-      {%- endfor -%}
-      {{ out | to_json }}
-
-- name: Normalise the booleans
-  ansible.builtin.set_fact:
-    __lh_se_booleans: "{{ __lh_se_booleans | from_json }}"
+      {{ dict(__lh_se_getsebool.stdout | default('') | regex_findall('(?m)^(\S+) --> (\w+)\s*$')) }}

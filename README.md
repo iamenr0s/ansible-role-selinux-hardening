@@ -2,7 +2,7 @@
 
 # Ansible Role: Selinux Hardening
 
-> Standalone copy of `selinux_hardening` from the [iamenr0s.linux_hardening](https://github.com/iamenr0s/linux-hardening-collection) collection. Variables keep the collection-wide `linux_hardening_*` prefix.
+> Standalone copy of `selinux_hardening` from the [iamenr0s.linux_hardening](https://github.com/iamenr0s/linux-hardening-collection) collection. Variables keep the collection-wide `linux_hardening_*` prefix on purpose, so playbooks work unchanged with either the collection or this role.
 
 Audit-first SELinux for the RedHat family (EL, Fedora). Other families are **skipped** with a message and `linux_hardening_selinux_findings: []` (Debian/Ubuntu: see `apparmor_hardening`, not yet written). The role **never reboots**.
 
@@ -12,7 +12,7 @@ Audit-first SELinux for the RedHat family (EL, Fedora). Other families are **ski
 | `selinux-policy-targeted`, `libselinux-utils`, `policycoreutils` installed | installed |
 | `SELINUX=` in `/etc/selinux/config` equals `linux_hardening_selinux_state` (default `enforcing`) | written (backup kept) |
 | Running mode equals the desired state | `setenforce` |
-| Persistent booleans in `linux_hardening_selinux_booleans` | `setsebool -P` |
+| Persistent booleans in `linux_hardening_selinux_booleans` | `ansible.posix.seboolean` (persistent) |
 | `SELINUXTYPE` equals `targeted` | **reported only** (changing it needs a relabel) |
 | `selinux=0` / `enforcing=0` on the kernel command line | **reported only** (bootloader) |
 
@@ -21,6 +21,27 @@ Audit-first SELinux for the RedHat family (EL, Fedora). Other families are **ski
 - **Permissive**: raising to enforcing can break services that relied on it, so remediation stops unless `linux_hardening_selinux_confirm_enforcing: true`. Check `ausearch -m avc -ts boot` first.
 - **Disabled**: enabling needs a full relabel and a reboot. With `linux_hardening_selinux_allow_enable_from_disabled: true` the role **stages** it: config set to *permissive* (never straight to enforcing), `/.autorelabel` created. Then you: remove `selinux=0` if it is set (`grubby --update-kernel ALL --remove-args selinux=0`), reboot, let the relabel finish, and run the role again with `confirm_enforcing: true`. The staged state is reported as a non-fixable finding until then.
 
+## Requirements
+Run as root (`become: true`). Needs the `ansible.posix` collection (`ansible-galaxy collection install -r requirements.yml`; already included in the full `ansible` package). When booleans are set, the role installs `python3-libselinux` and `python3-libsemanage` on the host. The role is idempotent: a second remediate run reports no changes.
+
+## Role Variables
+| Variable | Default | Description |
+|---|---|---|
+| `linux_hardening_mode` | `audit` | `audit` (read-only) or `remediate` |
+| `linux_hardening_confirm_remediation` | `false` | Must be `true` before remediate changes anything |
+| `linux_hardening_backup` | `true` | Back up `/etc/selinux/config` when it changes |
+| `linux_hardening_verify` | `true` | Re-audit after remediation (skipped in check mode) |
+| `linux_hardening_fail_on_error` | `true` | Fail the play when audit finds deviations |
+| `linux_hardening_selinux_enabled` | `true` | Run the role |
+| `linux_hardening_selinux_config` | `/etc/selinux/config` | SELinux configuration file |
+| `linux_hardening_selinux_state` | `enforcing` | Desired mode: `enforcing` or `permissive` |
+| `linux_hardening_selinux_policy` | `targeted` | Expected policy type (reported only) |
+| `linux_hardening_selinux_confirm_enforcing` | `false` | Allow raising the running mode from permissive to enforcing |
+| `linux_hardening_selinux_allow_enable_from_disabled` | `false` | Allow staging the enable from disabled (config permissive plus `/.autorelabel`; reboot yourself) |
+| `linux_hardening_selinux_booleans` | `{}` | Persistent booleans `{name: true\|false}` |
+
+The full spec is in `meta/argument_specs.yml`.
+
 ## Modes
 `audit` (default) is read-only and sets `linux_hardening_selinux_findings` (`key, expected, actual, fixable`). `remediate` needs `linux_hardening_confirm_remediation: true`; after it only fixable findings fail the run.
 
@@ -28,7 +49,7 @@ Audit-first SELinux for the RedHat family (EL, Fedora). Other families are **ski
 ```yaml
 - hosts: rhel_family
   roles:
-    - role: iamenr0s.linux_hardening.selinux_hardening
+    - role: iamenr0s.selinux_hardening
       vars:
         linux_hardening_mode: remediate
         linux_hardening_confirm_remediation: true
@@ -40,7 +61,7 @@ Audit-first SELinux for the RedHat family (EL, Fedora). Other families are **ski
 Container scenarios `default` (the staged enable at file level: containers read as disabled), `audit`, `refuse` (no confirmation; no consent to stage); Debian-family containers check the skip. **VM scenarios** (libvirt, RedHat boxes only; run `sg libvirt -c "molecule test -s vagrant"`): `vagrant` (permissive host: refuses without consent, then enforces and sets a boolean) and `vagrant-relabel` (really disabled via `selinux=0`, staged, relabel reboot, permissive, second run enforces, ~2 minutes). Tested: AlmaLinux 9 (containers and VMs), Fedora 44 (containers). CI runs the container scenarios only.
 
 ## Rollback
-Restore `/etc/selinux/config` from its backup and `setenforce 0`. To undo `setsebool -P`, set the boolean back.
+Restore `/etc/selinux/config` from its backup and `setenforce 0`. To undo a boolean, set it back (`setsebool -P <name> <on|off>`).
 
 ## Known gaps
 - Does not audit or fix file contexts, unconfined services, `setroubleshoot`/`mcstrans` packages, or custom policy modules.
