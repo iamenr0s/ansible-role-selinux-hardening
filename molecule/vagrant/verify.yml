@@ -20,5 +20,5 @@
       ansible.builtin.include_role:
         name: "{{ playbook_dir }}/../.."  # noqa: role-name[path]
       vars:
-        linux_hardening_mode: audit
-        linux_hardening_selinux_booleans: {httpd_can_network_connect: true}
+        selinux_hardening_mode: audit
+        selinux_hardening_booleans: {httpd_can_network_connect: true}

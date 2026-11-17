@@ -1,7 +1,7 @@
 ---
 # audit: read-only. remediate: packages, /etc/selinux/config, running mode, booleans. Never reboots.
 - name: Run selinux_hardening
-  when: linux_hardening_selinux_enabled | bool
+  when: selinux_hardening_enabled | bool
   block:
     # meta/argument_specs.yml already validates the inputs; only the OS family fact is needed.
     - name: Gather the minimum facts
@@ -11,7 +11,7 @@
 
     - name: Skip other OS families
       ansible.builtin.set_fact:
-        linux_hardening_selinux_findings: []
+        selinux_hardening_findings: []
       when: ansible_facts['os_family'] != 'RedHat'
 
     - name: Say why the role was skipped
@@ -26,17 +26,17 @@
       block:
         - name: Audit (read-only)
           ansible.builtin.include_tasks: audit.yml
-          when: linux_hardening_mode == 'audit'
+          when: selinux_hardening_mode == 'audit'
 
         - name: Remediate
-          when: linux_hardening_mode == 'remediate'
+          when: selinux_hardening_mode == 'remediate'
           block:
             - name: Require explicit remediation confirmation
               ansible.builtin.assert:
-                that: linux_hardening_confirm_remediation | bool
+                that: selinux_hardening_confirm_remediation | bool
                 fail_msg: >-
-                  Remediation changes SELinux settings. Set linux_hardening_confirm_remediation: true
-                  to proceed (run with linux_hardening_mode: audit to preview).
+                  Remediation changes SELinux settings. Set selinux_hardening_confirm_remediation: true
+                  to proceed (run with selinux_hardening_mode: audit to preview).
                 quiet: true
 
             - name: Configure
@@ -45,6 +45,6 @@
             - name: Verify effective configuration
               ansible.builtin.include_tasks: audit.yml
               vars:
-                __lh_se_audit_fatal: true
+                __selinux_hardening_audit_fatal: true
               # Check mode changes nothing, so the re-audit would always fail.
-              when: linux_hardening_verify | bool and not ansible_check_mode
+              when: selinux_hardening_verify | bool and not ansible_check_mode

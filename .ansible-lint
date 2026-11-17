@@ -3,6 +3,3 @@ profile: production
 exclude_paths:
   - .github/
   - .ansible/
-skip_list:
-  # Variables keep the iamenr0s.linux_hardening collection prefix on purpose (see README).
-  - var-naming[no-role-prefix]

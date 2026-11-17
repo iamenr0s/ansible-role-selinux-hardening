@@ -2,24 +2,24 @@
 
 # Ansible Role: Selinux Hardening
 
-> Standalone copy of `selinux_hardening` from the [iamenr0s.linux_hardening](https://github.com/iamenr0s/linux-hardening-collection) collection. Variables keep the collection-wide `linux_hardening_*` prefix on purpose, so playbooks work unchanged with either the collection or this role.
+> Standalone copy of `selinux_hardening` from the [iamenr0s.linux_hardening](https://github.com/iamenr0s/linux-hardening-collection) collection. Variables use the role prefix `selinux_hardening_*` (the collection uses `linux_hardening_*`).
 
-Audit-first SELinux for the RedHat family (EL, Fedora). Other families are **skipped** with a message and `linux_hardening_selinux_findings: []` (Debian/Ubuntu: see `apparmor_hardening`, not yet written). The role **never reboots**.
+Audit-first SELinux for the RedHat family (EL, Fedora). Other families are **skipped** with a message and `selinux_hardening_findings: []` (Debian/Ubuntu: see `apparmor_hardening`, not yet written). The role **never reboots**.
 
 ## What it checks
 | Check | Remediation |
 |---|---|
 | `selinux-policy-targeted`, `libselinux-utils`, `policycoreutils` installed | installed |
-| `SELINUX=` in `/etc/selinux/config` equals `linux_hardening_selinux_state` (default `enforcing`) | written (backup kept) |
+| `SELINUX=` in `/etc/selinux/config` equals `selinux_hardening_state` (default `enforcing`) | written (backup kept) |
 | Running mode equals the desired state | `setenforce` |
-| Persistent booleans in `linux_hardening_selinux_booleans` | `ansible.posix.seboolean` (persistent) |
+| Persistent booleans in `selinux_hardening_booleans` | `ansible.posix.seboolean` (persistent) |
 | `SELINUXTYPE` equals `targeted` | **reported only** (changing it needs a relabel) |
 | `selinux=0` / `enforcing=0` on the kernel command line | **reported only** (bootloader) |
 
 ## The three starting points
 - **Enforcing already** (stock EL images): nothing to do beyond drift and booleans.
-- **Permissive**: raising to enforcing can break services that relied on it, so remediation stops unless `linux_hardening_selinux_confirm_enforcing: true`. Check `ausearch -m avc -ts boot` first.
-- **Disabled**: enabling needs a full relabel and a reboot. With `linux_hardening_selinux_allow_enable_from_disabled: true` the role **stages** it: config set to *permissive* (never straight to enforcing), `/.autorelabel` created. Then you: remove `selinux=0` if it is set (`grubby --update-kernel ALL --remove-args selinux=0`), reboot, let the relabel finish, and run the role again with `confirm_enforcing: true`. The staged state is reported as a non-fixable finding until then.
+- **Permissive**: raising to enforcing can break services that relied on it, so remediation stops unless `selinux_hardening_confirm_enforcing: true`. Check `ausearch -m avc -ts boot` first.
+- **Disabled**: enabling needs a full relabel and a reboot. With `selinux_hardening_allow_enable_from_disabled: true` the role **stages** it: config set to *permissive* (never straight to enforcing), `/.autorelabel` created. Then you: remove `selinux=0` if it is set (`grubby --update-kernel ALL --remove-args selinux=0`), reboot, let the relabel finish, and run the role again with `confirm_enforcing: true`. The staged state is reported as a non-fixable finding until then.
 
 ## Requirements
 Run as root (`become: true`). Needs the `ansible.posix` collection (`ansible-galaxy collection install -r requirements.yml`; already included in the full `ansible` package). When booleans are set, the role installs `python3-libselinux` and `python3-libsemanage` on the host. The role is idempotent: a second remediate run reports no changes.
@@ -27,23 +27,23 @@ Run as root (`become: true`). Needs the `ansible.posix` collection (`ansible-gal
 ## Role Variables
 | Variable | Default | Description |
 |---|---|---|
-| `linux_hardening_mode` | `audit` | `audit` (read-only) or `remediate` |
-| `linux_hardening_confirm_remediation` | `false` | Must be `true` before remediate changes anything |
-| `linux_hardening_backup` | `true` | Back up `/etc/selinux/config` when it changes |
-| `linux_hardening_verify` | `true` | Re-audit after remediation (skipped in check mode) |
-| `linux_hardening_fail_on_error` | `true` | Fail the play when audit finds deviations |
-| `linux_hardening_selinux_enabled` | `true` | Run the role |
-| `linux_hardening_selinux_config` | `/etc/selinux/config` | SELinux configuration file |
-| `linux_hardening_selinux_state` | `enforcing` | Desired mode: `enforcing` or `permissive` |
-| `linux_hardening_selinux_policy` | `targeted` | Expected policy type (reported only) |
-| `linux_hardening_selinux_confirm_enforcing` | `false` | Allow raising the running mode from permissive to enforcing |
-| `linux_hardening_selinux_allow_enable_from_disabled` | `false` | Allow staging the enable from disabled (config permissive plus `/.autorelabel`; reboot yourself) |
-| `linux_hardening_selinux_booleans` | `{}` | Persistent booleans `{name: true\|false}` |
+| `selinux_hardening_mode` | `audit` | `audit` (read-only) or `remediate` |
+| `selinux_hardening_confirm_remediation` | `false` | Must be `true` before remediate changes anything |
+| `selinux_hardening_backup` | `true` | Back up `/etc/selinux/config` when it changes |
+| `selinux_hardening_verify` | `true` | Re-audit after remediation (skipped in check mode) |
+| `selinux_hardening_fail_on_error` | `true` | Fail the play when audit finds deviations |
+| `selinux_hardening_enabled` | `true` | Run the role |
+| `selinux_hardening_config` | `/etc/selinux/config` | SELinux configuration file |
+| `selinux_hardening_state` | `enforcing` | Desired mode: `enforcing` or `permissive` |
+| `selinux_hardening_policy` | `targeted` | Expected policy type (reported only) |
+| `selinux_hardening_confirm_enforcing` | `false` | Allow raising the running mode from permissive to enforcing |
+| `selinux_hardening_allow_enable_from_disabled` | `false` | Allow staging the enable from disabled (config permissive plus `/.autorelabel`; reboot yourself) |
+| `selinux_hardening_booleans` | `{}` | Persistent booleans `{name: true\|false}` |
 
 The full spec is in `meta/argument_specs.yml`.
 
 ## Modes
-`audit` (default) is read-only and sets `linux_hardening_selinux_findings` (`key, expected, actual, fixable`). `remediate` needs `linux_hardening_confirm_remediation: true`; after it only fixable findings fail the run.
+`audit` (default) is read-only and sets `selinux_hardening_findings` (`key, expected, actual, fixable`). `remediate` needs `selinux_hardening_confirm_remediation: true`; after it only fixable findings fail the run.
 
 ## Example
 ```yaml
@@ -51,10 +51,10 @@ The full spec is in `meta/argument_specs.yml`.
   roles:
     - role: iamenr0s.selinux_hardening
       vars:
-        linux_hardening_mode: remediate
-        linux_hardening_confirm_remediation: true
-        linux_hardening_selinux_confirm_enforcing: true
-        linux_hardening_selinux_booleans: {httpd_can_network_connect: true}
+        selinux_hardening_mode: remediate
+        selinux_hardening_confirm_remediation: true
+        selinux_hardening_confirm_enforcing: true
+        selinux_hardening_booleans: {httpd_can_network_connect: true}
 ```
 
 ## Verification

@@ -8,12 +8,12 @@
       ansible.builtin.include_role:
         name: "{{ playbook_dir }}/../.."  # noqa: role-name[path]
       vars:
-        linux_hardening_mode: audit
-        linux_hardening_fail_on_error: false
+        selinux_hardening_mode: audit
+        selinux_hardening_fail_on_error: false
 
     - name: Other OS families are skipped
       ansible.builtin.assert:
-        that: linux_hardening_selinux_findings == []
+        that: selinux_hardening_findings == []
         quiet: true
       when: ansible_facts['os_family'] != 'RedHat'
 
@@ -23,9 +23,9 @@
         - name: Only the staged running-mode finding remains
           ansible.builtin.assert:
             that:
-              - linux_hardening_selinux_findings | length == 1
-              - linux_hardening_selinux_findings[0].key == 'running SELinux mode'
-              - not linux_hardening_selinux_findings[0].fixable
+              - selinux_hardening_findings | length == 1
+              - selinux_hardening_findings[0].key == 'running SELinux mode'
+              - not selinux_hardening_findings[0].fixable
             quiet: true
 
         - name: Config is permissive, never enforcing, while staging

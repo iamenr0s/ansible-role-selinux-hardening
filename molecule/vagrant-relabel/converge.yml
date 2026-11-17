@@ -9,6 +9,6 @@
       ansible.builtin.include_role:
         name: "{{ playbook_dir }}/../.."  # noqa: role-name[path]
       vars:
-        linux_hardening_mode: remediate
-        linux_hardening_confirm_remediation: true
-        linux_hardening_selinux_allow_enable_from_disabled: true
+        selinux_hardening_mode: remediate
+        selinux_hardening_confirm_remediation: true
+        selinux_hardening_allow_enable_from_disabled: true

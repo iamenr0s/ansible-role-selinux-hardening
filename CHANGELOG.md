@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Change: variables renamed to the role prefix `selinux_hardening_*` (internal: `__selinux_hardening_*`); the `var-naming[no-role-prefix]` lint check is enabled again.
 - Fix: `--check` with `remediate` no longer fails on a non-compliant host (the re-audit is skipped in check mode).
 - Fix: works with `gather_facts: false` (gathers the minimum facts itself).
 - Fix: findings report `actual: unset`/`unknown` instead of `null` for a missing `SELINUX=` or an unknown boolean.

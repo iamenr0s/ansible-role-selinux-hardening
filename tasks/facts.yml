@@ -1,65 +1,67 @@
 ---
-# Read-only. Sets __lh_se_runtime (enforcing|permissive|disabled|missing), __lh_se_config (parsed file),
-# __lh_se_booleans (name -> on|off), __lh_se_target_state, __lh_se_staging.
+# Read-only. Sets __selinux_hardening_runtime (enforcing|permissive|disabled|missing),
+# __selinux_hardening_config (parsed file), __selinux_hardening_booleans (name -> on|off),
+# __selinux_hardening_target_state, __selinux_hardening_staging.
 - name: Gather package facts
   ansible.builtin.package_facts:
 
 - name: Look for getenforce
   ansible.builtin.stat:
     path: /usr/sbin/getenforce
-  register: __lh_se_getenforce
+  register: __selinux_hardening_getenforce
 
 - name: Read the running mode
   ansible.builtin.command: getenforce
-  register: __lh_se_getenforce_out
+  register: __selinux_hardening_getenforce_out
   changed_when: false
   failed_when: false
   check_mode: false
-  when: __lh_se_getenforce.stat.exists
+  when: __selinux_hardening_getenforce.stat.exists
 
 - name: Read the SELinux configuration
   ansible.builtin.slurp:
-    src: "{{ linux_hardening_selinux_config }}"
-  register: __lh_se_config_raw
+    src: "{{ selinux_hardening_config }}"
+  register: __selinux_hardening_config_raw
   failed_when: false
   check_mode: false
 
 - name: Read the kernel command line
   ansible.builtin.slurp:
     src: /proc/cmdline
-  register: __lh_se_cmdline
+  register: __selinux_hardening_cmdline
   failed_when: false
   check_mode: false
 
 - name: Look for the relabel marker
   ansible.builtin.stat:
     path: /.autorelabel
-  register: __lh_se_autorelabel
+  register: __selinux_hardening_autorelabel
 
 - name: Work out the runtime mode and the configuration
   ansible.builtin.set_fact:
-    __lh_se_runtime: >-
-      {{ (__lh_se_getenforce_out.stdout | default('missing')) | trim | lower
-         if __lh_se_getenforce.stat.exists else 'missing' }}
+    __selinux_hardening_runtime: >-
+      {{ (__selinux_hardening_getenforce_out.stdout | default('missing')) | trim | lower
+         if __selinux_hardening_getenforce.stat.exists else 'missing' }}
     # KEY=value pairs; commented lines never match.
-    __lh_se_config: >-
-      {{ dict(__lh_se_config_raw.content | default('') | b64decode
+    __selinux_hardening_config: >-
+      {{ dict(__selinux_hardening_config_raw.content | default('') | b64decode
               | regex_findall('(?m)^\s*(\w+)\s*=\s*(\S*)')) }}
 
 - name: Decide the target
   ansible.builtin.set_fact:
-    __lh_se_staging: "{{ __lh_se_runtime == 'disabled' }}"
-    __lh_se_target_state: "{{ 'permissive' if __lh_se_runtime == 'disabled' else linux_hardening_selinux_state }}"
+    __selinux_hardening_staging: "{{ __selinux_hardening_runtime == 'disabled' }}"
+    __selinux_hardening_target_state: >-
+      {{ 'permissive' if __selinux_hardening_runtime == 'disabled' else selinux_hardening_state }}
 
 - name: Read the booleans
   ansible.builtin.command: getsebool -a
-  register: __lh_se_getsebool
+  register: __selinux_hardening_getsebool
   changed_when: false
   failed_when: false
   check_mode: false
-  when: __lh_se_runtime in ['enforcing', 'permissive']
+  when: __selinux_hardening_runtime in ['enforcing', 'permissive']
 
 - name: Parse the booleans
   ansible.builtin.set_fact:
-    __lh_se_booleans: >-
-      {{ dict(__lh_se_getsebool.stdout | default('') | regex_findall('(?m)^(\S+) --> (\w+)\s*$')) }}
+    __selinux_hardening_booleans: >-
+      {{ dict(__selinux_hardening_getsebool.stdout | default('') | regex_findall('(?m)^(\S+) --> (\w+)\s*$')) }}
