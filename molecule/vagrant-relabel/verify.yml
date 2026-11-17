@@ -21,12 +21,14 @@
       ansible.builtin.include_role:
         name: "{{ playbook_dir }}/../.."  # noqa: role-name[path]
       vars:
-        linux_hardening_mode: audit
-        linux_hardening_fail_on_error: false
+        selinux_hardening_mode: audit
+        selinux_hardening_fail_on_error: false
 
     - name: Findings name the kernel parameter
       ansible.builtin.assert:
-        that: linux_hardening_selinux_findings | selectattr('key', 'eq', 'kernel parameter selinux=0') | list | length == 1
+        that: >-
+          selinux_hardening_findings
+          | selectattr('key', 'eq', 'kernel parameter selinux=0') | list | length == 1
         quiet: true
 
     - name: Drop selinux=0 and reboot (the filesystem relabel runs on this boot)
@@ -52,9 +54,9 @@
       ansible.builtin.include_role:
         name: "{{ playbook_dir }}/../.."  # noqa: role-name[path]
       vars:
-        linux_hardening_mode: remediate
-        linux_hardening_confirm_remediation: true
-        linux_hardening_selinux_confirm_enforcing: true
+        selinux_hardening_mode: remediate
+        selinux_hardening_confirm_remediation: true
+        selinux_hardening_confirm_enforcing: true
 
     - name: Enforcing now
       ansible.builtin.command: getenforce
@@ -66,4 +68,4 @@
       ansible.builtin.include_role:
         name: "{{ playbook_dir }}/../.."  # noqa: role-name[path]
       vars:
-        linux_hardening_mode: audit
+        selinux_hardening_mode: audit

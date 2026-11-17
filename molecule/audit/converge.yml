@@ -8,12 +8,12 @@
       ansible.builtin.include_role:
         name: "{{ playbook_dir }}/../.."  # noqa: role-name[path]
       vars:
-        linux_hardening_mode: audit
-        linux_hardening_fail_on_error: false
+        selinux_hardening_mode: audit
+        selinux_hardening_fail_on_error: false
 
     - name: Findings are a list
       ansible.builtin.assert:
-        that: linux_hardening_selinux_findings is sequence
+        that: selinux_hardening_findings is sequence
         quiet: true
 
     - name: Nothing was staged

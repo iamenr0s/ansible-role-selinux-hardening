@@ -5,7 +5,7 @@ dependencies: []
 galaxy_info:
   role_name: selinux_hardening
   author: iamenr0s
-  description: Audit-first SELinux mode, policy and booleans with a staged, relabel-safe enable path (iamenr0s.linux_hardening).
+  description: Audit-first SELinux mode, policy and booleans with a staged, relabel-safe enable path.
   license: MIT
   min_ansible_version: "2.16"
   platforms:

@@ -3,15 +3,55 @@ argument_specs:
   main:
     short_description: Audit and set SELinux mode and booleans; never reboots and stages the enable from disabled.
     options:
-      linux_hardening_mode: {type: str, default: audit, choices: [audit, remediate], description: "audit is read-only."}
-      linux_hardening_confirm_remediation: {type: bool, default: false, description: "Must be true before remediate changes anything."}
-      linux_hardening_backup: {type: bool, default: true, description: "Back up /etc/selinux/config when it changes."}
-      linux_hardening_verify: {type: bool, default: true, description: "Re-audit after remediation."}
-      linux_hardening_fail_on_error: {type: bool, default: true, description: "Fail the play when audit finds deviations."}
-      linux_hardening_selinux_enabled: {type: bool, default: true, description: "Run the role."}
-      linux_hardening_selinux_config: {type: path, default: /etc/selinux/config, description: "SELinux configuration file."}
-      linux_hardening_selinux_state: {type: str, default: enforcing, choices: [enforcing, permissive], description: "Desired mode."}
-      linux_hardening_selinux_policy: {type: str, default: targeted, description: "Expected policy type (reported only)."}
-      linux_hardening_selinux_confirm_enforcing: {type: bool, default: false, description: "Allow raising the running mode from permissive to enforcing."}
-      linux_hardening_selinux_allow_enable_from_disabled: {type: bool, default: false, description: "Allow staging the enable from disabled (config permissive plus /.autorelabel; reboot yourself)."}
-      linux_hardening_selinux_booleans: {type: dict, default: {}, description: "Persistent booleans {name: bool}."}
+      selinux_hardening_mode:
+        type: str
+        default: audit
+        choices: [audit, remediate]
+        description: "audit is read-only."
+      selinux_hardening_confirm_remediation:
+        type: bool
+        default: false
+        description: "Must be true before remediate changes anything."
+      selinux_hardening_backup:
+        type: bool
+        default: true
+        description: "Back up /etc/selinux/config when it changes."
+      selinux_hardening_verify:
+        type: bool
+        default: true
+        description: "Re-audit after remediation (skipped in check mode)."
+      selinux_hardening_fail_on_error:
+        type: bool
+        default: true
+        description: "Fail the play when audit finds deviations."
+      selinux_hardening_enabled:
+        type: bool
+        default: true
+        description: "Run the role."
+      selinux_hardening_config:
+        type: path
+        default: /etc/selinux/config
+        description: "SELinux configuration file."
+      selinux_hardening_state:
+        type: str
+        default: enforcing
+        choices: [enforcing, permissive]
+        description: "Desired mode."
+      selinux_hardening_policy:
+        type: str
+        default: targeted
+        description: "Expected policy type (reported only)."
+      selinux_hardening_confirm_enforcing:
+        type: bool
+        default: false
+        description: "Allow raising the running mode from permissive to enforcing."
+      selinux_hardening_allow_enable_from_disabled:
+        type: bool
+        default: false
+        description: >-
+          Allow staging the enable from disabled
+          (config permissive plus /.autorelabel; reboot yourself).
+      selinux_hardening_booleans:
+        type: dict
+        default: {}
+        description: "Persistent booleans {name: bool}."
