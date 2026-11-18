@@ -33,7 +33,7 @@
 
 - name: configure | Set SELINUX in the configuration
   ansible.builtin.lineinfile:
-    path: "{{ selinux_hardening_config }}"
+    path: "/etc/selinux/config"
     regexp: "^SELINUX="
     line: "SELINUX={{ __selinux_hardening_target_state }}"
     create: true
@@ -62,9 +62,9 @@
   ansible.builtin.package:
     name: "{{ __selinux_hardening_binding_packages }}"
     state: present
-  when: __selinux_hardening_booleans | length > 0 and selinux_hardening_booleans | length > 0
+  when: __selinux_hardening_current_booleans | length > 0 and selinux_hardening_booleans | length > 0
 
-# Unknown booleans are only reported (not fixable); empty __selinux_hardening_booleans means SELinux is disabled.
+# Unknown booleans are only reported (not fixable); empty __selinux_hardening_current_booleans means SELinux is disabled.
 - name: configure | Set the booleans
   ansible.posix.seboolean:
     name: "{{ item.key }}"
@@ -74,7 +74,7 @@
   loop_control:
     label: "{{ item.key }}"
   when:
-    - __selinux_hardening_booleans | length > 0
-    - item.key in __selinux_hardening_booleans
+    - __selinux_hardening_current_booleans | length > 0
+    - item.key in __selinux_hardening_current_booleans
     # Check mode cannot install the bindings the module imports.
     - not ansible_check_mode or __selinux_hardening_binding_packages is subset(ansible_facts['packages'].keys())

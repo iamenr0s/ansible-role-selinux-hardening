@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- Change: removed `selinux_hardening_config`; SELinux only reads `/etc/selinux/config`, so the path is fixed.
+- Change: the fail-on-findings decision is two named tasks instead of one nested expression.
 - Change: task names in sub-task files are prefixed (`audit |`, `facts |`, `configure |`).
 - Change: remediate gathers the SELinux state once less (only package facts before the install).
 - Change: pre-commit runs gitleaks secret detection.

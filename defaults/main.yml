@@ -8,7 +8,6 @@ selinux_hardening_fail_on_error: true
 
 # --- SELinux settings (EL / Fedora; other families are skipped, see apparmor_hardening) ---
 selinux_hardening_enabled: true
-selinux_hardening_config: /etc/selinux/config
 
 selinux_hardening_state: enforcing       # enforcing | permissive
 # Only reported: changing the policy type needs a relabel and is not done by this role.

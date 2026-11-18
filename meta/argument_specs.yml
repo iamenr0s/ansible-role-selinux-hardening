@@ -28,10 +28,6 @@ argument_specs:
         type: bool
         default: true
         description: "Run the role."
-      selinux_hardening_config:
-        type: path
-        default: /etc/selinux/config
-        description: "SELinux configuration file."
       selinux_hardening_state:
         type: str
         default: enforcing

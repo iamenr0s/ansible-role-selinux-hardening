@@ -1,6 +1,6 @@
 ---
 # Read-only. Sets __selinux_hardening_runtime (enforcing|permissive|disabled|missing),
-# __selinux_hardening_config (parsed file), __selinux_hardening_booleans (name -> on|off),
+# __selinux_hardening_config (parsed file), __selinux_hardening_current_booleans (name -> on|off),
 # __selinux_hardening_target_state, __selinux_hardening_staging.
 - name: facts | Gather package facts
   ansible.builtin.package_facts:
@@ -20,7 +20,7 @@
 
 - name: facts | Read the SELinux configuration
   ansible.builtin.slurp:
-    src: "{{ selinux_hardening_config }}"
+    src: "/etc/selinux/config"
   register: __selinux_hardening_config_raw
   failed_when: false
   check_mode: false
@@ -63,5 +63,5 @@
 
 - name: facts | Parse the booleans
   ansible.builtin.set_fact:
-    __selinux_hardening_booleans: >-
+    __selinux_hardening_current_booleans: >-
       {{ dict(__selinux_hardening_getsebool.stdout | default('') | regex_findall('(?m)^(\S+) --> (\w+)\s*$')) }}
