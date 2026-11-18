@@ -1,6 +1,10 @@
 # Changelog
 
 ## Unreleased
+- Change: task names in sub-task files are prefixed (`audit |`, `facts |`, `configure |`).
+- Change: remediate gathers the SELinux state once less (only package facts before the install).
+- Change: pre-commit runs gitleaks secret detection.
+- Docs: README intro aligned with the sibling hardening roles; the example uses `become: true`.
 - Change: variables renamed to the role prefix `selinux_hardening_*` (internal: `__selinux_hardening_*`); the `var-naming[no-role-prefix]` lint check is enabled again.
 - Fix: `--check` with `remediate` no longer fails on a non-compliant host (the re-audit is skipped in check mode).
 - Fix: works with `gather_facts: false` (gathers the minimum facts itself).
