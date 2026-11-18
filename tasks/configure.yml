@@ -1,18 +1,18 @@
 ---
-- name: Gather SELinux state (is the tooling there?)
-  ansible.builtin.include_tasks: facts.yml
+- name: configure | Gather package facts
+  ansible.builtin.package_facts:
 
-- name: Ensure the SELinux packages are installed
+- name: configure | Ensure the SELinux packages are installed
   ansible.builtin.package:
     name: "{{ __selinux_hardening_packages }}"
     state: present
-  when: __selinux_hardening_packages | difference(ansible_facts['packages'].keys()) | length > 0
+  when: __selinux_hardening_packages | reject('in', ansible_facts['packages']) | list | length > 0
 
 # The runtime mode is only known once getenforce exists, so decide staging and guards after the install.
-- name: Re-gather SELinux state
+- name: configure | Re-gather SELinux state
   ansible.builtin.include_tasks: facts.yml
 
-- name: Refuse to stage the enable from disabled without consent
+- name: configure | Refuse to stage the enable from disabled without consent
   ansible.builtin.assert:
     that: selinux_hardening_allow_enable_from_disabled | bool
     fail_msg: >-
@@ -22,7 +22,7 @@
     quiet: true
   when: __selinux_hardening_staging
 
-- name: Refuse to enforce without consent
+- name: configure | Refuse to enforce without consent
   ansible.builtin.assert:
     that: selinux_hardening_confirm_enforcing | bool
     fail_msg: >-
@@ -31,9 +31,9 @@
     quiet: true
   when: __selinux_hardening_runtime == 'permissive' and selinux_hardening_state == 'enforcing'
 
-- name: Set SELINUX in the configuration
+- name: configure | Set SELINUX in the configuration
   ansible.builtin.lineinfile:
-    path: "{{ selinux_hardening_config }}"
+    path: /etc/selinux/config
     regexp: "^SELINUX="
     line: "SELINUX={{ __selinux_hardening_target_state }}"
     create: true
@@ -42,7 +42,7 @@
     mode: "0644"
     backup: "{{ selinux_hardening_backup | bool }}"
 
-- name: Ask for a relabel at the next boot
+- name: configure | Ask for a relabel at the next boot
   ansible.builtin.file:
     path: /.autorelabel
     state: touch
@@ -51,21 +51,22 @@
     mode: "0644"
   when: __selinux_hardening_staging
 
-- name: Set the running mode
+- name: configure | Set the running mode
   ansible.builtin.command: "setenforce {{ 1 if selinux_hardening_state == 'enforcing' else 0 }}"
   changed_when: true
   when:
     - __selinux_hardening_runtime in ['enforcing', 'permissive']
     - __selinux_hardening_runtime != selinux_hardening_state
 
-- name: Ensure the SELinux Python bindings are installed
+- name: configure | Ensure the SELinux Python bindings are installed
   ansible.builtin.package:
     name: "{{ __selinux_hardening_binding_packages }}"
     state: present
-  when: __selinux_hardening_booleans | length > 0 and selinux_hardening_booleans | length > 0
+  when: __selinux_hardening_current_booleans | length > 0 and selinux_hardening_booleans | length > 0
 
-# Unknown booleans are only reported (not fixable); empty __selinux_hardening_booleans means SELinux is disabled.
-- name: Set the booleans
+# Unknown booleans are only reported (not fixable).
+# An empty __selinux_hardening_current_booleans means SELinux is disabled.
+- name: configure | Set the booleans
   ansible.posix.seboolean:
     name: "{{ item.key }}"
     state: "{{ item.value | bool }}"
@@ -74,7 +75,7 @@
   loop_control:
     label: "{{ item.key }}"
   when:
-    - __selinux_hardening_booleans | length > 0
-    - item.key in __selinux_hardening_booleans
+    - __selinux_hardening_current_booleans | length > 0
+    - item.key in __selinux_hardening_current_booleans
     # Check mode cannot install the bindings the module imports.
     - not ansible_check_mode or __selinux_hardening_binding_packages is subset(ansible_facts['packages'].keys())

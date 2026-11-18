@@ -41,7 +41,6 @@ Run as root (`become: true`). Needs the `ansible.posix` collection (`ansible-gal
 | `selinux_hardening_verify` | `true` | Re-audit after remediation (skipped in check mode) |
 | `selinux_hardening_fail_on_error` | `true` | Fail the play when audit finds deviations |
 | `selinux_hardening_enabled` | `true` | Run the role |
-| `selinux_hardening_config` | `/etc/selinux/config` | SELinux configuration file |
 | `selinux_hardening_state` | `enforcing` | Desired mode: `enforcing` or `permissive` |
 | `selinux_hardening_policy` | `targeted` | Expected policy type (reported only) |
 | `selinux_hardening_confirm_enforcing` | `false` | Allow raising the running mode from permissive to enforcing |
@@ -56,6 +55,7 @@ The full spec is in `meta/argument_specs.yml`.
 ## Example
 ```yaml
 - hosts: rhel_family
+  become: true
   roles:
     - role: iamenr0s.selinux_hardening
       vars:

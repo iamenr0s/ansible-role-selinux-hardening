@@ -1,20 +1,20 @@
 ---
-- name: Gather SELinux state
+- name: audit | Gather SELinux state
   ansible.builtin.include_tasks: facts.yml
 
 # Each check adds a finding {key, expected, actual, fixable} when the host deviates.
-- name: Start with no findings
+- name: audit | Start with no findings
   ansible.builtin.set_fact:
     selinux_hardening_findings: []
 
-- name: Check the SELinux packages
+- name: audit | Check the SELinux packages
   ansible.builtin.set_fact:
     selinux_hardening_findings: "{{ selinux_hardening_findings + [__selinux_hardening_finding] }}"
   vars:
     __selinux_hardening_finding: {key: "package {{ item }}", expected: installed, actual: missing, fixable: true}
   loop: "{{ __selinux_hardening_packages | reject('in', ansible_facts['packages']) | list }}"
 
-- name: Check the running mode (disabled, staged)
+- name: audit | Check the running mode (disabled, staged)
   ansible.builtin.set_fact:
     selinux_hardening_findings: "{{ selinux_hardening_findings + [__selinux_hardening_finding] }}"
   vars:
@@ -25,7 +25,7 @@
       fixable: false
   when: __selinux_hardening_runtime == 'disabled'
 
-- name: Check the running mode
+- name: audit | Check the running mode
   ansible.builtin.set_fact:
     selinux_hardening_findings: "{{ selinux_hardening_findings + [__selinux_hardening_finding] }}"
   vars:
@@ -38,30 +38,30 @@
     - __selinux_hardening_runtime in ['enforcing', 'permissive']
     - __selinux_hardening_runtime != selinux_hardening_state
 
-- name: Check SELINUX in the configuration
+- name: audit | Check SELINUX in the configuration
   ansible.builtin.set_fact:
     selinux_hardening_findings: "{{ selinux_hardening_findings + [__selinux_hardening_finding] }}"
   vars:
     __selinux_hardening_finding:
-      key: "SELINUX in {{ selinux_hardening_config }}"
+      key: "SELINUX in /etc/selinux/config"
       expected: "{{ __selinux_hardening_target_state }}"
       actual: "{{ __selinux_hardening_config.SELINUX | default('unset', true) }}"
       fixable: true
   when: __selinux_hardening_config.SELINUX | default('') != __selinux_hardening_target_state
 
-- name: Check the relabel marker
+- name: audit | Check the relabel marker
   ansible.builtin.set_fact:
     selinux_hardening_findings: "{{ selinux_hardening_findings + [__selinux_hardening_finding] }}"
   vars:
     __selinux_hardening_finding: {key: relabel marker /.autorelabel, expected: present, actual: missing, fixable: true}
   when: __selinux_hardening_staging and not __selinux_hardening_autorelabel.stat.exists
 
-- name: Check SELINUXTYPE in the configuration (reported only)
+- name: audit | Check SELINUXTYPE in the configuration (reported only)
   ansible.builtin.set_fact:
     selinux_hardening_findings: "{{ selinux_hardening_findings + [__selinux_hardening_finding] }}"
   vars:
     __selinux_hardening_finding:
-      key: "SELINUXTYPE in {{ selinux_hardening_config }}"
+      key: "SELINUXTYPE in /etc/selinux/config"
       expected: "{{ selinux_hardening_policy }}"
       actual: >-
         {{ __selinux_hardening_config.SELINUXTYPE | default('unset', true) }}
@@ -69,7 +69,7 @@
       fixable: false
   when: __selinux_hardening_config.SELINUXTYPE | default('') != selinux_hardening_policy
 
-- name: Check the kernel command line (reported only)
+- name: audit | Check the kernel command line (reported only)
   ansible.builtin.set_fact:
     selinux_hardening_findings: "{{ selinux_hardening_findings + [__selinux_hardening_finding] }}"
   vars:
@@ -83,7 +83,7 @@
        | select('in', (__selinux_hardening_cmdline.content | default('') | b64decode).split()) | list }}
 
 # Booleans are only known while SELinux runs; an unknown boolean is reported, not fixable.
-- name: Check the booleans
+- name: audit | Check the booleans
   ansible.builtin.set_fact:
     selinux_hardening_findings: "{{ selinux_hardening_findings + [__selinux_hardening_finding] }}"
   vars:
@@ -91,16 +91,16 @@
     __selinux_hardening_finding:
       key: "boolean {{ item.key }}"
       expected: "{{ __selinux_hardening_want }}"
-      actual: "{{ __selinux_hardening_booleans.get(item.key) | default('unknown', true) }}"
-      fixable: "{{ item.key in __selinux_hardening_booleans }}"
+      actual: "{{ __selinux_hardening_current_booleans.get(item.key) | default('unknown', true) }}"
+      fixable: "{{ item.key in __selinux_hardening_current_booleans }}"
   loop: "{{ selinux_hardening_booleans | dict2items }}"
   loop_control:
     label: "{{ item.key }}"
   when:
-    - __selinux_hardening_booleans | length > 0
-    - __selinux_hardening_booleans.get(item.key) != __selinux_hardening_want
+    - __selinux_hardening_current_booleans | length > 0
+    - __selinux_hardening_current_booleans.get(item.key) != __selinux_hardening_want
 
-- name: Report each finding
+- name: audit | Report each finding
   ansible.builtin.debug:
     msg: >-
       {{ item.key }}: expected {{ item.expected }}, got {{ item.actual }}{{ '' if item.fixable else ' (manual)' }}
@@ -108,18 +108,25 @@
   loop_control:
     label: "{{ item.key }}"
 
-- name: Report compliance
+- name: audit | Report compliance
   ansible.builtin.debug:
     msg: selinux_hardening is COMPLIANT
   when: selinux_hardening_findings | length == 0
 
-# After remediation only fixable findings fail the run; a staged enable and reported-only items need a human.
-- name: Fail on findings
+- name: audit | Fail on findings
   ansible.builtin.fail:
-    msg: "selinux_hardening found {{ __selinux_hardening_blocking | length }} deviation(s)."
-  vars:
-    __selinux_hardening_blocking: >-
-      {{ (selinux_hardening_findings | selectattr('fixable') | list)
-         if __selinux_hardening_audit_fatal | default(false)
-         else (selinux_hardening_findings if selinux_hardening_fail_on_error | bool else []) }}
-  when: __selinux_hardening_blocking | length > 0
+    msg: "selinux_hardening found {{ selinux_hardening_findings | length }} deviation(s)."
+  when:
+    - not __selinux_hardening_audit_fatal | default(false)
+    - selinux_hardening_fail_on_error | bool
+    - selinux_hardening_findings | length > 0
+
+# After remediation only fixable findings fail the run; a staged enable and reported-only items need a human.
+- name: audit | Fail on fixable findings left after remediation
+  ansible.builtin.fail:
+    msg: >-
+      selinux_hardening left {{ selinux_hardening_findings | selectattr('fixable') | list | length }}
+      fixable deviation(s).
+  when:
+    - __selinux_hardening_audit_fatal | default(false)
+    - selinux_hardening_findings | selectattr('fixable') | list | length > 0
