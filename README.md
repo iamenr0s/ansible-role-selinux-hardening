@@ -1,10 +1,18 @@
 [![Molecule](https://github.com/iamenr0s/ansible-role-selinux-hardening/actions/workflows/molecule.yml/badge.svg)](https://github.com/iamenr0s/ansible-role-selinux-hardening/actions/workflows/molecule.yml) ![Ansible Role](https://img.shields.io/ansible/role/d/iamenr0s/selinux_hardening) [![CodeFactor](https://www.codefactor.io/repository/github/iamenr0s/ansible-role-selinux-hardening/badge)](https://www.codefactor.io/repository/github/iamenr0s/ansible-role-selinux-hardening)
 
-# Ansible Role: Selinux Hardening
+# Ansible Role: SELinux Hardening
 
-> Standalone copy of `selinux_hardening` from the [iamenr0s.linux_hardening](https://github.com/iamenr0s/linux-hardening-collection) collection. Variables use the role prefix `selinux_hardening_*` (the collection uses `linux_hardening_*`).
+This role audits and enforces the SELinux mode and booleans on RHEL/AlmaLinux/RockyLinux and Fedora servers, and reports the policy type and kernel command line. It changes the running mode and `/etc/selinux/config`, and never reboots. Other OS families (Debian/Ubuntu: see `apparmor_hardening`) are skipped with a message and `selinux_hardening_findings: []`.
 
-Audit-first SELinux for the RedHat family (EL, Fedora). Other families are **skipped** with a message and `selinux_hardening_findings: []` (Debian/Ubuntu: see `apparmor_hardening`, not yet written). The role **never reboots**.
+Features
+--------
+- Audit mode by default: read-only, and reports every deviation. Changes need `selinux_hardening_confirm_remediation: true`.
+- Raises permissive to enforcing only with `selinux_hardening_confirm_enforcing: true`.
+- Stages the enable from disabled (permissive plus `/.autorelabel`) instead of jumping straight to enforcing; you reboot.
+- Sets persistent booleans with `ansible.posix.seboolean`.
+- Supports check mode: `--check` previews remediation.
+- Backs up `/etc/selinux/config` before changing it.
+- Standalone copy of `selinux_hardening` from the [iamenr0s.linux_hardening](https://github.com/iamenr0s/linux-hardening-collection) collection; variables use the role prefix `selinux_hardening_*` (the collection uses `linux_hardening_*`).
 
 ## What it checks
 | Check | Remediation |
