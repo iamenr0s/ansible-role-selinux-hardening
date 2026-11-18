@@ -56,6 +56,7 @@ The full spec is in `meta/argument_specs.yml`.
 ## Example
 ```yaml
 - hosts: rhel_family
+  become: true
   roles:
     - role: iamenr0s.selinux_hardening
       vars:
