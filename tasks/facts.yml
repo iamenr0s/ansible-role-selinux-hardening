@@ -20,7 +20,7 @@
 
 - name: facts | Read the SELinux configuration
   ansible.builtin.slurp:
-    src: "/etc/selinux/config"
+    src: /etc/selinux/config
   register: __selinux_hardening_config_raw
   failed_when: false
   check_mode: false
@@ -39,9 +39,8 @@
 
 - name: facts | Work out the runtime mode and the configuration
   ansible.builtin.set_fact:
-    __selinux_hardening_runtime: >-
-      {{ (__selinux_hardening_getenforce_out.stdout | default('missing')) | trim | lower
-         if __selinux_hardening_getenforce.stat.exists else 'missing' }}
+    # A skipped getenforce task registers no stdout, so default() covers the missing binary.
+    __selinux_hardening_runtime: "{{ __selinux_hardening_getenforce_out.stdout | default('missing') | trim | lower }}"
     # KEY=value pairs; commented lines never match.
     __selinux_hardening_config: >-
       {{ dict(__selinux_hardening_config_raw.content | default('') | b64decode

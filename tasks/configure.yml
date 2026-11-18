@@ -6,7 +6,7 @@
   ansible.builtin.package:
     name: "{{ __selinux_hardening_packages }}"
     state: present
-  when: __selinux_hardening_packages | difference(ansible_facts['packages'].keys()) | length > 0
+  when: __selinux_hardening_packages | reject('in', ansible_facts['packages']) | list | length > 0
 
 # The runtime mode is only known once getenforce exists, so decide staging and guards after the install.
 - name: configure | Re-gather SELinux state
@@ -33,7 +33,7 @@
 
 - name: configure | Set SELINUX in the configuration
   ansible.builtin.lineinfile:
-    path: "/etc/selinux/config"
+    path: /etc/selinux/config
     regexp: "^SELINUX="
     line: "SELINUX={{ __selinux_hardening_target_state }}"
     create: true
