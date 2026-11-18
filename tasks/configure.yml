@@ -64,7 +64,8 @@
     state: present
   when: __selinux_hardening_current_booleans | length > 0 and selinux_hardening_booleans | length > 0
 
-# Unknown booleans are only reported (not fixable); empty __selinux_hardening_current_booleans means SELinux is disabled.
+# Unknown booleans are only reported (not fixable).
+# An empty __selinux_hardening_current_booleans means SELinux is disabled.
 - name: configure | Set the booleans
   ansible.posix.seboolean:
     name: "{{ item.key }}"
