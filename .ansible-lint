@@ -3,3 +3,6 @@ profile: production
 exclude_paths:
   - .github/
   - .ansible/
+# Opt-in: task names in tasks/<file>.yml start with '<file> | ' (CoP: prefix sub-task names).
+enable_list:
+  - name[prefix]
