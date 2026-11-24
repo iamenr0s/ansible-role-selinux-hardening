@@ -20,7 +20,7 @@
       selinux_hardening_allow_enable_from_disabled: true to stage it (config -> permissive, /.autorelabel);
       the role does not reboot. After the relabel boot, run it again to reach {{ selinux_hardening_state }}.
     quiet: true
-  when: __selinux_hardening_staging
+  when: __selinux_hardening_staging | bool
 
 - name: configure | Refuse to enforce without consent
   ansible.builtin.assert:
@@ -49,7 +49,7 @@
     modification_time: preserve
     access_time: preserve
     mode: "0644"
-  when: __selinux_hardening_staging
+  when: __selinux_hardening_staging | bool
 
 - name: configure | Set the running mode
   ansible.builtin.command: "setenforce {{ 1 if selinux_hardening_state == 'enforcing' else 0 }}"
